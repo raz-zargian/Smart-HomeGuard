@@ -180,5 +180,5 @@ def show_camera(CAM_URL):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-   # show_camera(CAM_URL)
-   main()
+    #show_camera()
+    main()    
