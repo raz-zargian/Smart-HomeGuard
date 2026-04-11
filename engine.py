@@ -6,8 +6,6 @@ import base64
 import requests
 from datetime import datetime
 
-AWS_URL="https://your-aws-endpoint.com/api/upload"
-CAM_URL="rtsp://eyal:qwer1234@10.100.102.23:554/cam/realmonitor?channel=2&subtype=1"
 class Camera:
     def __init__(self,camera_type="webcam",stream_url=None):
         self.camera_type=camera_type
