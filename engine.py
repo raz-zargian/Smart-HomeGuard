@@ -1,6 +1,9 @@
 # yolo export model=yolov8n.pt format=onnx imgsz=288,352
-import os
 
+#url
+#https://0vqf7cd4q5.execute-api.us-east-1.amazonaws.com/prod/upload
+import os
+import json
 from ultralytics import YOLO
 import cv2
 import base64
@@ -108,28 +111,25 @@ class PersonDetector:
         return []
 
 
-def send_to_aws(cropped_persons,endpoint_url):
-    base64_images=[]
-    for crop in cropped_persons:
-        success,buffer=cv2.imencode(".jpg",crop)
-        if not success:
-            print("[ERROR] Failed to encode cropped image")
-            continue
-        img_base64=base64.b64encode(buffer.tobytes()).decode('utf-8')
-        base64_images.append(img_base64)
+def send_to_aws(crop,endpoint_url):
+    success,buffer=cv2.imencode(".jpg",crop)
+    if not success:
+        print("[ERROR] Failed to encode cropped image")
+        return
+    image_bytes = buffer.tobytes()
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
     payload={
-        "date":datetime.now().isoformat(),
-        "images":base64_images
+        "image":image_base64
     }
-    try:
-        response= requests.post(endpoint_url,json=payload)
-        if response.status_code==200:
-           print(f"Successfully sent {len(base64_images)} crops to AWS!")
-        else:
-            print(f"[ERROR] Failed to send data to AWS. Status code: {response.status_code}, Response: {response.text}")
-    except Exception as e:
-        print(f"[ERROR] Exception occurred while sending data to AWS: {e}")
 
+    response=requests.post(endpoint_url,data=json.dumps(payload),headers={"Content-Type":"application/json"})
+    if response.status_code==200:
+        print("Successfully sent image to AWS!")
+    else:
+        print(f"[ERROR] Failed to send image to AWS. Status code: {response.status_code}, Response: {response.text}")
+
+    return response.json()
+    
 def main():
     config_path="privateInfo.yaml"
     model_path="yolov8n.onnx"
@@ -150,10 +150,12 @@ def main():
             break
         detections=detector.detect_and_get_crop(frame)
         if len(detections) > 0:
-            print(f"Detected {len(detections)} person(s) in the frame")
-            cv2.imshow("Smart Home Guard - Live View", frame)
-           # send_to_aws(detections,endpoint_url=AWS_URL)
 
+            print(f"Detected {len(detections)} person(s) in the frame")
+
+            for crop in detections:
+                response=send_to_aws(crop,endpoint_url=AWS_URL)
+                print(response)
 
 def show_camera(CAM_URL):
     cap = cv2.VideoCapture(CAM_URL)
