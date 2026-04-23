@@ -11,7 +11,7 @@ sns = boto3.client('sns')
 
 BUCKET_NAME = os.environ.get('BUCKET_NAME')
 COLLECTION_ID = os.environ.get('COLLECTION_ID')
-TABLE_USER_NAME = os.environ.get('TABLE_USER_NAME') # the userid is the faceid
+TABLE_USER_NAME = os.environ.get('TABLE_USER_NAME')
 TABLE_EVENT_NAME = os.environ.get('TABLE_EVENT_NAME')
 SNS_TOPIC_ARN = os.environ.get('SNS_TOPIC_ARN') 
 
@@ -50,10 +50,10 @@ def lambda_handler(event, context):
             matched_user = response['FaceMatches'][0]
             status = 'Recognized'
             existing_face_id = matched_user['Face']['FaceId']
-            confidence = matched_user['Similarity']
+            confidence = matched_user['Similarity'] # The similarity between the new face and the existing face
             
             users_table = dynamodb.Table(TABLE_USER_NAME)
-            user_info = users_table.get_item(Key={'UserID': existing_face_id})
+            user_info = users_table.get_item(Key={'FaceID': existing_face_id})
 
             if 'Item' in user_info:
                 display_name = user_info['Item']['Name']
@@ -80,6 +80,9 @@ def lambda_handler(event, context):
                                 'S3_ProfilePicturePath': image_key
                             }
                         )
+            else:
+                display_name = 'Unknown'
+                user_role = 'Unknown'
         
         events_table = dynamodb.Table(TABLE_EVENT_NAME)
         events_table.put_item(
@@ -88,6 +91,7 @@ def lambda_handler(event, context):
                 'CreatedAt': timestamp,
                 'Status': status,
                 'FaceID': new_face_id,
+                'UserName': display_name,
                 'Confidence': str(confidence),
                 'S3_EventImagePath': image_key
             }
@@ -111,6 +115,7 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'status': status,
                 'face_id': new_face_id,
+                'user_name': display_name,
                 'confidence': confidence
             })
         }
