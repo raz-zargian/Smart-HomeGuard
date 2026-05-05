@@ -143,6 +143,7 @@ def main():
     cam=Camera(camera_type="test",stream_url=CAM_URL,video_path="examples/cctv1.mp4")
     detector=PersonDetector(model_path=model_path)
     while True:
+    #for i in range(10):
         frame = cam.get_frame()
        
         if frame is None:

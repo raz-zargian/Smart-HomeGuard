@@ -45,6 +45,8 @@ def lambda_handler(event, context):
         status = 'Unknown'
         new_face_id = 'None'
         confidence = 0.0
+        display_name='Unknown'
+        user_role = 'Unknown'
 
         if response.get('FaceMatches'):
             matched_user = response['FaceMatches'][0]
@@ -80,10 +82,7 @@ def lambda_handler(event, context):
                                 'S3_ProfilePicturePath': image_key
                             }
                         )
-            else:
-                display_name = 'Unknown'
-                user_role = 'Unknown'
-        
+   
         events_table = dynamodb.Table(TABLE_EVENT_NAME)
         events_table.put_item(
             Item={
