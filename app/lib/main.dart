@@ -33,95 +33,9 @@ class MyApp extends StatelessWidget {
       ),
       //home: const MyHomePage(title: 'Flutter Demo Home Page'),
       home: const EventDetailScreen(
-        eventId: 'evt_987654321',
+        eventId: 'b2380929-e63a-40a5-8c8f-3c9d3941a352',
         imageUrl:
-            'https://via.placeholder.com/400', // תמונת דמה כדי לבדוק שהעיצוב עובד
-      ),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+            'https://smarthomeguard-images.s3.amazonaws.com/events/b2380929-e63a-40a5-8c8f-3c9d3941a352.jpg?AWSAccessKeyId=ASIAWMO6PDFSDGED6UOJ&Signature=ABt0NGvkv%2FeamzQHfGZ1cXbcEsk%3D&x-amz-security-token=IQoJb3JpZ2luX2VjECMaCXVzLWVhc3QtMSJGMEQCIBvnQHgm%2BuUBp%2F%2FFZARbiw1Gb6zPndUwUHYSEWNNrKY1AiAOAj6Xv9S31D3zRv3%2FC2xmBqOoaiUSys2SHRMhUCjc4Cr4Awjs%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAIaDDQzOTA5MDA5MjM4OCIMbr6dXRusQhv88%2B%2FvKswD5LwoJ1PxqWbqDhOnc7I2OpNmvPYvGMGyKY6a7pE0CcLD7KECfEpUXmZAKAp5%2Bgbdn9qTLrZzXjJ6%2FIQ7bUA%2BSpNd4aYbtBLTuLiwMOWI2grk9WrfVzWeebQ40az8%2FQ1lfT4vzW8AcWicIAvIi%2FR0RzFbTHTiyS99KdWtSaKnWFdpjkzmGJDmn4gBJnx64W53M7HbF0jW%2BHxw%2FThAx9q4nfNdxMCeThooumUwZwEgQOOPvIWrOk0nCjnfknhWZ%2Bz8qkoGzsQGNMMvrRUYZ0s7GDMzWD%2BUK4Kom0cYFlGuTu204Pv7sWLCOO5jEHHJ2OdASNfdSW4D5sjyEcm5HawrlV2Vj6cujdk93onv1tLF3Q8CUlBzMuU7TVUbEBqqP61cofwB57z1oDOvPgycwetfGoSD9AbLYpk3rhpj8CDsJQF6G8nS6xca7C0H74pQPDsX1G85bvXzxZ1pS0Y4N2xglsoyYQpzpRQbpAzdYQIt6gtNTRq6FEEiYa2l1EJt9nLNRMaMAGH7OP9k1BXj51URUK%2FoheDwLFowwi%2Bay%2BJY%2Fg2dgVge2BOd6dL9p%2BR0ui7WuqdIWsSengqQWmrWIhg3kO%2FSrvNP04LGrEkaKzDGh%2F7PBjqiAaWmMvx1F%2F8QybU0wRcp9Yh0gPYUVQN9DA7Bam4Ffh1vxRKWrrf9EkRJ8jduEIjxK9OBokQ4vGLmvT8IygNudb2icEAOedwoS9HTPDd7NnoUVnq8gjJg4ewIOjZB52BkhvaEq1tHmQ%2Bk2vCbm2ZUWNleUOU%2BDs9rFoKG%2BMc9CH4DSunTQRViL%2FxJSZiPtG7DALsgAiw0qFWhZUm58J2%2FMqzbDw%3D%3D&Expires=1778356696', // תמונת דמה כדי לבדוק שהעיצוב עובד
       ),
     );
   }

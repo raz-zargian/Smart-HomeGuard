@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'aws_sender.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -30,12 +31,37 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     });
   }
 
-  void _onSubmit() {
+  void _onSubmit() async {
     if (_formKey.currentState?.validate() ?? false) {
       // Form is valid, handle the submission logic here
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Processing Data...')));
+
+      bool success = await approveUnknownUser(
+        widget.eventId,
+        _nameController.text.trim(),
+        _roleController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully registered known person!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(); // Go back after success
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to submit data. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 

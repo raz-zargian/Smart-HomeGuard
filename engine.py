@@ -140,7 +140,7 @@ def main():
     CAM_URL=config.get("CAM_URL")
 
     
-    cam=Camera(camera_type="test",stream_url=CAM_URL,video_path="examples/cctv1.mp4")
+    cam=Camera(camera_type="test",stream_url=CAM_URL,video_path="examples\WIN_20260509_21_56_33_Pro.mp4")
     detector=PersonDetector(model_path=model_path)
     while True:
     #for i in range(10):
@@ -165,7 +165,7 @@ def show_camera(CAM_URL):
         print("error")
         return
 
-    print("sucsses")
+    print("success")
 
     while True:
         ret, frame = cap.read()
