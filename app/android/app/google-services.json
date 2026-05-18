@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "696184557049",
+    "project_id": "smarthomeguard-7dafd",
+    "storage_bucket": "smarthomeguard-7dafd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696184557049:android:055089fb767574d9fc0128",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_yjCjaut_2n8ck8Ib3h5-c3i6qyP4NUE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -102,11 +102,26 @@ def lambda_handler(event, context):
                 Params={'Bucket': BUCKET_NAME, 'Key': image_key},
                 ExpiresIn=3600
             )
-            #TODO: Add the ability to send the image to the user's mobile app
+            
+            gcm_payload = {
+                "notification": {
+                    "title": "Smart HomeGuard Security Alert!",
+                    "body": "Unknown person detected at the entrance. Click here to view."
+                },
+                "data": {
+                    "eventId": event_id,
+                    "imageUrl": presigned_url
+                }
+            }
+
+            sns_message = {
+                "default": "Security Alert: Unknown Person Detected",
+                "GCM": json.dumps(gcm_payload)
+            }
             sns.publish(
                 TopicArn=SNS_TOPIC_ARN,
-                Message=f"Smart HomeGuard: Unknown person detected at {timestamp}. Please check the image for more details. {presigned_url}",
-                Subject="Security Alert: Unknown Person Detected"
+                Message=json.dumps(sns_message),
+                MessageStructure='json'
             )
              
         return {

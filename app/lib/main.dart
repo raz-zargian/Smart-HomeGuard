@@ -1,41 +1,248 @@
-import 'package:app/event_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
+import 'models/security_event.dart';
+import 'events_list_screen.dart';
+import 'home_screen.dart';
+import 'services/local_db_service.dart';
 
-void main() {
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message: ${message.messageId}");
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final localDb = LocalDbService();
+  await localDb.init();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+  NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  print('User granted permission: ${settings.authorizationStatus}');
+
+  String? token = await messaging.getToken(
+    vapidKey:
+     "The end point",
+  );
+
+  print("\n\n" + "=" * 50);
+  print("YOUR FCM TOKEN IS:");
+  print(token);
+  print("=" * 50 + "\n\n");
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Smart Home Guard',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        brightness: Brightness.dark,
+        primaryColor: Colors.blueAccent,
+        scaffoldBackgroundColor: const Color(0xFF121212),
       ),
-      //home: const MyHomePage(title: 'Flutter Demo Home Page'),
-      home: const EventDetailScreen(
-        eventId: 'b2380929-e63a-40a5-8c8f-3c9d3941a352',
-        imageUrl:
-            'https://via.placeholder.com/400', // תמונת דמה כדי לבדוק שהעיצוב עובד
+      home: const MainNavigationScreen(),
+    );
+  }
+}
+
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
+
+  @override
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _currentIndex = 0;
+  int _unreadEvents = 0;
+  List<SecurityEvent> _events = [];
+  final LocalDbService _localDbService = LocalDbService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStoredEvents();
+    // Uncomment for testing data
+    // _setupTestData();
+    
+    _setupFirebaseListeners();
+  }
+
+  void _loadStoredEvents() {
+    setState(() {
+      _events = _localDbService.getAllSecurityEvents();
+    });
+  }
+
+  void _setupTestData() async {
+    final newEvent = SecurityEvent(
+      eventId: "The event id",
+      status: "Unknown",
+      imageUrl:"The image url",
+      timestamp: DateTime.now(),
+    );
+    await _localDbService.addSecurityEvent(newEvent);
+
+    setState(() {
+      _events = _localDbService.getAllSecurityEvents();
+      if (_currentIndex != 1) {
+        _unreadEvents++;
+      }
+    });
+    _showInAppNotification();
+  }
+
+  void _setupFirebaseListeners() async {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print("Got a message whilst in the foreground!");
+      _handleMessage(message, isForeground: true);
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print("App opened from background message!");
+      _handleMessage(message, isForeground: false);
+    });
+
+    RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      print("App opened from terminated state!");
+      _handleMessage(initialMessage, isForeground: false);
+    }
+  }
+
+  void _handleMessage(RemoteMessage message, {bool isForeground = false}) async {
+    if (message.data.containsKey('eventId') && message.data.containsKey('imageUrl')) {
+      final newEvent = SecurityEvent(
+        eventId: message.data['eventId'],
+        status: "Unknown",
+        imageUrl: message.data['imageUrl'],
+        timestamp: DateTime.now(),
+      );
+      await _localDbService.addSecurityEvent(newEvent);
+
+      setState(() {
+        _events = _localDbService.getAllSecurityEvents();
+        
+        if (_currentIndex != 1) {
+          _unreadEvents++;
+        }
+      });
+
+      if (isForeground) {
+        _showInAppNotification();
+      } else {
+        // If opened from background, automatically switch to the Event tab
+        setState(() {
+          _currentIndex = 1;
+          _unreadEvents = 0;
+        });
+      }
+    }
+  }
+
+  void _showInAppNotification() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("New unknown person detected!"),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(days: 365), // Stay on screen until dismissed or action taken
+        action: SnackBarAction(
+          label: 'VIEW',
+          textColor: Colors.blueAccent,
+          onPressed: () {
+            setState(() {
+              _currentIndex = 1;
+              _unreadEvents = 0;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+      if (index == 1) {
+        _unreadEvents = 0; // Clear unread events when visiting the tab
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    });
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0:
+        return const HomeScreen();
+      case 1:
+        return EventsListScreen(events: _events);
+      case 2:
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.people_alt_outlined, size: 80, color: Colors.green),
+              SizedBox(height: 20),
+              Text(
+                'Known People\n(Coming Soon)',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 24, color: Colors.white70),
+              ),
+            ],
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildBody(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
+        backgroundColor: const Color(0xFF1E1E1E),
+        selectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.white54,
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Badge(
+              isLabelVisible: _unreadEvents > 0,
+              label: Text('$_unreadEvents'),
+              child: const Icon(Icons.event),
+            ),
+            label: 'Events',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Known People',
+          ),
+        ],
       ),
     );
   }
