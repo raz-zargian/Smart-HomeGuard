@@ -61,3 +61,37 @@ Future<bool> approveUnknownUser(
     return false;
   }
 }
+
+Future<bool> addKnownPerson(
+  String name,
+  String role,
+  String base64Image,
+) async {
+  final String apiUrl =
+      'https://0vqf7cd4q5.execute-api.us-east-1.amazonaws.com/approve/add-new-person';
+
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_name': name,
+        'user_role': role.isEmpty ? 'Undefined' : role,
+        'image': base64Image,
+      }),
+    );
+
+    print('Raw response status: ${response.statusCode}');
+
+    if (response.statusCode == 200) {
+      print('Successfully added known person.');
+      return true;
+    } else {
+      print('Failed to add known person. HTTP Status: ${response.statusCode}');
+      return false;
+    }
+  } catch (e) {
+    print('Error making API request: $e');
+    return false;
+  }
+}

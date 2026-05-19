@@ -22,13 +22,14 @@ class SecurityEventAdapter extends TypeAdapter<SecurityEvent> {
       status: fields[2] as String,
       faceId: fields[3] as String?,
       imageUrl: fields[4] as String,
+      imageBase64: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, SecurityEvent obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.eventId)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class SecurityEventAdapter extends TypeAdapter<SecurityEvent> {
       ..writeByte(3)
       ..write(obj.faceId)
       ..writeByte(4)
-      ..write(obj.imageUrl);
+      ..write(obj.imageUrl)
+      ..writeByte(5)
+      ..write(obj.imageBase64);
   }
 
   @override

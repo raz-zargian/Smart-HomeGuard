@@ -1,2 +1,5 @@
 privateInfo.yaml
 vAwsenv/
+venv/
+__pycache__/
+*.pyc

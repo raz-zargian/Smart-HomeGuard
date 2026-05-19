@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'models/security_event.dart';
 import 'event_detail_screen.dart';
+import 'services/local_db_service.dart';
 
 class EventsListScreen extends StatelessWidget {
   final List<SecurityEvent> events;
+  final VoidCallback? onRefresh;
 
-  const EventsListScreen({super.key, required this.events});
+  const EventsListScreen({super.key, required this.events, this.onRefresh});
 
   String _formatDate(DateTime date) {
     final String amPm = date.hour >= 12 ? 'PM' : 'AM';
@@ -25,6 +27,8 @@ class EventsListScreen extends StatelessWidget {
       );
     }
 
+    final localDb = LocalDbService();
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -39,14 +43,24 @@ class EventsListScreen extends StatelessWidget {
           final event = events[index];
           final formattedTime = _formatDate(event.timestamp);
 
+          String titleText = "Unknown Person Detected";
+          if (event.status == 'known') {
+            final face = localDb.getKnownFace(event.eventId);
+            if (face != null) {
+              titleText = face.name;
+            } else {
+              titleText = "Known Person";
+            }
+          }
+
           return Card(
             color: const Color(0xFF1E1E1E),
             margin: const EdgeInsets.only(bottom: 12.0),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => EventDetailScreen(
@@ -55,6 +69,9 @@ class EventsListScreen extends StatelessWidget {
                     ),
                   ),
                 );
+                if (onRefresh != null) {
+                  onRefresh!();
+                }
               },
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -81,9 +98,9 @@ class EventsListScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Unknown Person Detected",
-                            style: TextStyle(
+                          Text(
+                            titleText,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,

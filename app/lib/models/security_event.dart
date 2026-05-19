@@ -19,11 +19,15 @@ class SecurityEvent extends HiveObject {
   @HiveField(4)
   String imageUrl;
 
+  @HiveField(5)
+  String? imageBase64;
+
   SecurityEvent({
     required this.eventId,
     required this.timestamp,
     required this.status,
     this.faceId,
     required this.imageUrl,
+    this.imageBase64,
   });
 }

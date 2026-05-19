@@ -13,9 +13,13 @@ class KnownFace extends HiveObject {
   @HiveField(2)
   String imageBase64;
 
+  @HiveField(3)
+  String role;
+
   KnownFace({
     required this.faceId,
     required this.name,
     required this.imageBase64,
+    required this.role,
   });
 }

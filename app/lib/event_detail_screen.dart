@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'aws_sender.dart';
+import 'models/known_face.dart';
+import 'services/local_db_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class EventDetailScreen extends StatefulWidget {
   final String eventId;
@@ -20,6 +24,60 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _roleController = TextEditingController();
+  String? _base64Image;
+  bool _isApproved = false;
+  String? _approvedName;
+
+  @override
+  void initState() {
+    super.initState();
+    _downloadAndInitializeEvent();
+  }
+
+  Future<void> _downloadAndInitializeEvent() async {
+    try {
+      final localDb = LocalDbService();
+      final event = localDb.getSecurityEvent(widget.eventId);
+
+      if (event != null && event.status == 'known') {
+        final face = localDb.getKnownFace(widget.eventId);
+        if (mounted) {
+          setState(() {
+            _isApproved = true;
+            _approvedName = face?.name ?? "Known Person";
+            _base64Image = event.imageBase64;
+          });
+        }
+        return;
+      }
+
+      if (event == null || event.imageBase64 == null) {
+        final response = await http.get(Uri.parse(widget.imageUrl));
+        if (response.statusCode == 200) {
+          final base64String = base64Encode(response.bodyBytes);
+          if (mounted) {
+            setState(() {
+              _base64Image = base64String;
+            });
+          }
+
+          if (event != null) {
+            event.status = 'unverified';
+            event.imageBase64 = base64String;
+            await event.save();
+          }
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _base64Image = event.imageBase64;
+          });
+        }
+      }
+    } catch (e) {
+      print("Failed to download image: $e");
+    }
+  }
 
   void _onUnknownPressed() {
     Navigator.of(context).pop();
@@ -33,7 +91,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   void _onSubmit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Form is valid, handle the submission logic here
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Processing Data...')));
@@ -47,13 +104,35 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (!mounted) return;
 
       if (success) {
+        final localDb = LocalDbService();
+
+        final event = localDb.getSecurityEvent(widget.eventId);
+        if (event != null) {
+          event.status = 'known';
+          await event.save();
+        }
+
+        final newKnownFace = KnownFace(
+          faceId: widget.eventId,
+          name: _nameController.text.trim(),
+          role: _roleController.text.trim(),
+          imageBase64: _base64Image ?? '',
+        );
+        await localDb.addKnownFace(newKnownFace);
+
+        setState(() {
+          _isApproved = true;
+          _approvedName = _nameController.text.trim();
+          _isFormVisible = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Successfully registered known person!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Go back after success
+        //Navigator.of(context).pop(); // Go back after success
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -81,12 +160,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               panEnabled: true,
               minScale: 0.5,
               maxScale: 4.0,
-              child: Image.network(
-                widget.imageUrl,
-                fit: BoxFit.contain,
-                width: double.infinity,
-                height: double.infinity,
-              ),
+              child: _base64Image != null
+                  ? Image.memory(
+                      base64Decode(_base64Image!),
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      height: double.infinity,
+                    )
+                  : const CircularProgressIndicator(color: Colors.blueAccent),
             ),
           ),
         ),
@@ -107,7 +188,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       backgroundColor: const Color(0xFF121212), // Dark theme background
       appBar: AppBar(
         title: Text(
-          'Event Details: ${widget.eventId}',
+          _isApproved
+              ? (_approvedName ?? 'Known Person')
+              : 'Event Details: ${widget.eventId}',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -144,94 +227,121 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 onTap: _showImageFullScreen,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    widget.imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[900],
-                        child: const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: Colors.redAccent,
-                            size: 50,
+                  child: _base64Image != null
+                      ? Image.memory(
+                          base64Decode(_base64Image!),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[900],
+                              child: const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.redAccent,
+                                  size: 50,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          color: Colors.grey[900],
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.blueAccent,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.grey[900],
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      (loadingProgress.expectedTotalBytes ?? 1)
-                                : null,
-                            color: Colors.blueAccent,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Action Buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _onKnownPressed,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green[700],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text(
-                        'Known',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+            if (_isApproved)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _onUnknownPressed,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[800],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.warning_amber_rounded),
-                      label: const Text(
-                        'Unknown',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.5)),
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.greenAccent),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Approved: $_approvedName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+
+            // Action Buttons
+            if (!_isApproved)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _onKnownPressed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text(
+                          'Known',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _onUnknownPressed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[800],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.warning_amber_rounded),
+                        label: const Text(
+                          'Unknown',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 24),
 

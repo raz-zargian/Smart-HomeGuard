@@ -37,6 +37,10 @@ class LocalDbService {
     await _knownFacesBox.delete(faceId);
   }
 
+  KnownFace? getKnownFace(String faceId) {
+    return _knownFacesBox.get(faceId);
+  }
+
   // --- Security Events ---
   Box<SecurityEvent> get _securityEventsBox => Hive.box<SecurityEvent>(securityEventsBoxName);
 
@@ -49,5 +53,14 @@ class LocalDbService {
     // Sort by timestamp descending
     events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return events;
+  }
+
+  SecurityEvent? getSecurityEvent(String eventId) {
+    return _securityEventsBox.get(eventId);
+  }
+
+  Future<void> clearAll() async {
+    await _knownFacesBox.clear();
+    await _securityEventsBox.clear();
   }
 }

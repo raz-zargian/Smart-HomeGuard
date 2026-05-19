@@ -1,0 +1,14 @@
+update app icon:
+
+dart run flutter_launcher_icons
+
+
+start app on web:
+flutter run -d web-server --web-port=8080
+
+
+start app on mobile:
+flutter run -d (Device ID)
+
+update app on mobile:
+flutter run -d (Device ID) R5CN30FYYRM
