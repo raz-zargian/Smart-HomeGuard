@@ -95,3 +95,32 @@ Future<bool> addKnownPerson(
     return false;
   }
 }
+
+Future<bool> registerDeviceToken(String fcmToken) async {
+  // TODO: Replace with your new API Gateway URL for lambdaRegisterDevice
+  final String apiUrl = 'https://0vqf7cd4q5.execute-api.us-east-1.amazonaws.com/approve/register-devicer';
+
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'token': fcmToken,
+      }),
+    );
+
+    print('Register Device Response status: ${response.statusCode}');
+
+    if (response.statusCode == 200) {
+      print('Register Device Response body: ${response.body}');
+      print('Successfully registered device token with AWS SNS.');
+      return true;
+    } else {
+      print('Failed to register device token. HTTP Status: ${response.statusCode} - ${response.body}');
+      return false;
+    }
+  } catch (e) {
+    print('Error registering device token: $e');
+    return false;
+  }
+}

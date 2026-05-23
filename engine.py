@@ -27,12 +27,31 @@ class Camera:
             if video_path is None:
                 raise ValueError("Video path must be provided for test camera")
             self.source=video_path
+        elif self.camera_type=="image":
+            if video_path is None:
+                raise ValueError("Image path must be provided")
+            self.source=video_path
+            self.cap=None
+            self.image_returned=False
+            return
         else:
-            raise ValueError("Invalid camera type. Supported types are: webcam, pi_camera, wifi")
+            raise ValueError("Invalid camera type. Supported types are: webcam, pi_camera, wifi, test, image")
         self.cap=cv2.VideoCapture(self.source)
         if not self.cap.isOpened():
             print(f"[ERROR] Could not open {self.camera_type} camera at source: {self.source}")
     def get_frame(self):
+        if self.camera_type == "image":
+            if not getattr(self, "image_returned", False):
+                frame = cv2.imread(self.source)
+                if frame is None:
+                    print(f"[ERROR] Failed to load image from {self.source}")
+                    return None
+                self.image_returned = True
+                if self.show_debug:
+                    cv2.imshow("Smart Home Guard - Image View", frame)
+                return frame
+            return None
+
         ret,frame=self.cap.read()
         if not ret:
             print(f"[ERROR] Failed to capture frame from {self.camera_type} camera")
@@ -43,7 +62,8 @@ class Camera:
         return frame
     
     def release(self):
-        self.cap.release()
+        if self.cap is not None:
+            self.cap.release()
         print(f"[INFO] Released {self.camera_type} camera resources")
 
 class PersonDetector:
@@ -140,7 +160,10 @@ def main():
     CAM_URL=config.get("CAM_URL")
 
     
-    cam=Camera(camera_type="test",stream_url=CAM_URL,video_path="examples/cctv1.mp4")
+    # For video test:
+    # cam=Camera(camera_type="test",stream_url=CAM_URL,video_path="examples/cctv1.mp4")
+    # For single image test:
+    cam=Camera(camera_type="image",stream_url=CAM_URL,video_path="examples/raz.jpg")
     detector=PersonDetector(model_path=model_path)
     while True:
     #for i in range(10):

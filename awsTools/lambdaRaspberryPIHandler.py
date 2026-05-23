@@ -36,7 +36,7 @@ def lambda_handler(event, context):
                 CollectionId=COLLECTION_ID,
                 Image={'S3Object': {'Bucket': BUCKET_NAME, 'Name': image_key}},
                 MaxFaces=1,
-                FaceMatchThreshold=80
+                FaceMatchThreshold=70
             )
         except rekognition.exceptions.InvalidParameterException:
             # ReKognition throws this if the YOLO crop shows a body but no visible face
@@ -59,7 +59,7 @@ def lambda_handler(event, context):
 
             if 'Item' in user_info:
                 display_name = user_info['Item']['Name']
-                user_role = user_info['Item'].get('role', 'Undefined')
+                user_role = user_info['Item'].get('Role', 'Undefined')
 
                 index_response = rekognition.index_faces(
                     CollectionId=COLLECTION_ID,
@@ -75,7 +75,7 @@ def lambda_handler(event, context):
                     if new_face_id != existing_face_id:
                         users_table.put_item(
                             Item={
-                                'FaceId': new_face_id,
+                                'FaceID': new_face_id,
                                 'Name': display_name,
                                 'Role': user_role,
                                 'CreatedAt': timestamp,
@@ -130,6 +130,7 @@ def lambda_handler(event, context):
                 'status': status,
                 'face_id': new_face_id,
                 'user_name': display_name,
+                'user_role': user_role,
                 'confidence': confidence
             })
         }

@@ -8,6 +8,7 @@ import 'home_screen.dart';
 import 'known_people_screen.dart';
 import 'services/local_db_service.dart';
 import 'package:flutter/foundation.dart';
+import 'aws_sender.dart'; // IMPORT ADDED
 
 //flutter run -d web-server --web-port=8080
 @pragma('vm:entry-point')
@@ -39,20 +40,30 @@ void main() async {
   print('User granted permission: ${settings.authorizationStatus}');
 
   String? token;
-  if (kIsWeb) {
-    // requesting a token for the browser
-    token = await messaging.getToken(
-      vapidKey: "insert your vapid key here if you changed it",
-    );
-  } else {
-    // requesting a token for the mobile (Android / iOS)
-    token = await messaging.getToken();
-  }
+  try {
+    if (kIsWeb) {
+      // requesting a token for the browser
+      token = await messaging.getToken(
+        vapidKey: "insert your vapid key here if you changed it",
+      );
+    } else {
+      // requesting a token for the mobile (Android / iOS)
+      token = await messaging.getToken();
+    }
 
-  print("\n\n" + "=" * 50);
-  print("YOUR FCM TOKEN IS:");
-  print(token);
-  print("=" * 50 + "\n\n");
+    print("\n\n" + "=" * 50);
+    print("YOUR FCM TOKEN IS:");
+    print(token);
+    print("=" * 50 + "\n\n");
+
+    if (token != null) {
+      // Automatically register device token with AWS
+      await registerDeviceToken(token);
+    }
+  } catch (e) {
+    print("Failed to get FCM token: $e");
+    // Continue loading the app even if messaging fails
+  }
 
   runApp(const MyApp());
 }
