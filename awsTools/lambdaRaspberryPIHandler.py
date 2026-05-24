@@ -104,13 +104,21 @@ def lambda_handler(event, context):
             )
             
             gcm_payload = {
-                "notification": {
-                    "title": "Smart HomeGuard Security Alert!",
-                    "body": "Unknown person detected at the entrance. Click here to view."
+                "priority": "high",
+                "content_available": True,
+                "mutable_content": True,
+                "time_to_live": 3600,
+                "delay_while_idle": False,
+                "android": {
+                    "priority": "high",
+                    "ttl": "3600s"
                 },
                 "data": {
                     "eventId": event_id,
-                    "imageUrl": presigned_url
+                    "imageUrl": presigned_url,
+                    "title": "Smart HomeGuard Security Alert!",
+                    "body": "Unknown person detected at the entrance. Click here to view.",
+                    "status": "Unknown"
                 }
             }
 

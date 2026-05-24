@@ -5,7 +5,7 @@ import 'services/local_db_service.dart';
 
 class EventsListScreen extends StatelessWidget {
   final List<SecurityEvent> events;
-  final VoidCallback? onRefresh;
+  final Future<void> Function()? onRefresh;
 
   const EventsListScreen({super.key, required this.events, this.onRefresh});
 
@@ -70,7 +70,7 @@ class EventsListScreen extends StatelessWidget {
                   ),
                 );
                 if (onRefresh != null) {
-                  onRefresh!();
+                  await onRefresh!();
                 }
               },
               child: Padding(

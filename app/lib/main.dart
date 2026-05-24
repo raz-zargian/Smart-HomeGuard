@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'firebase_options.dart';
 import 'models/security_event.dart';
 import 'events_list_screen.dart';
@@ -8,13 +12,191 @@ import 'home_screen.dart';
 import 'known_people_screen.dart';
 import 'services/local_db_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'aws_sender.dart'; // IMPORT ADDED
+
+const AndroidNotificationChannel _alertsChannel = AndroidNotificationChannel(
+  'smart_home_guard_alerts',
+  'Smart Home Guard Alerts',
+  description: 'Alerts for unknown person detections',
+  importance: Importance.high,
+);
+
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
+
+const String _pendingSecurityEventsKey = 'pending_security_events';
 
 //flutter run -d web-server --web-port=8080
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  ui.DartPluginRegistrant.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   print("Handling a background message: ${message.messageId}");
+
+  try {
+    await _queuePendingSecurityEvent(message);
+  } catch (e) {
+    print('Failed to queue background event: $e');
+  }
+
+  if (message.notification == null) {
+    await _showLocalAlert(message);
+  }
+}
+
+Future<void> _queuePendingSecurityEvent(RemoteMessage message) async {
+  if (!message.data.containsKey('eventId') || !message.data.containsKey('imageUrl')) {
+    return;
+  }
+
+  final prefs = await SharedPreferences.getInstance();
+  final pendingEvents = prefs.getStringList(_pendingSecurityEventsKey) ?? <String>[];
+
+  pendingEvents.add(
+    jsonEncode({
+      'eventId': message.data['eventId'].toString(),
+      'imageUrl': message.data['imageUrl'].toString(),
+      'status': 'Unknown',
+      'timestamp': DateTime.now().toIso8601String(),
+    }),
+  );
+
+  await prefs.setStringList(_pendingSecurityEventsKey, pendingEvents);
+}
+
+Future<bool> _syncPendingSecurityEvents(LocalDbService localDb) async {
+  final prefs = await SharedPreferences.getInstance();
+  final pendingEvents = prefs.getStringList(_pendingSecurityEventsKey);
+
+  if (pendingEvents == null || pendingEvents.isEmpty) {
+    return false;
+  }
+
+  bool importedAnyEvent = false;
+
+  for (final pendingEventJson in pendingEvents) {
+    try {
+      final Map<String, dynamic> pendingEvent = jsonDecode(pendingEventJson);
+      final String? eventId = pendingEvent['eventId']?.toString();
+      final String? imageUrl = pendingEvent['imageUrl']?.toString();
+
+      if (eventId == null || imageUrl == null || eventId.isEmpty || imageUrl.isEmpty) {
+        continue;
+      }
+
+      await localDb.addSecurityEvent(
+        SecurityEvent(
+          eventId: eventId,
+          status: pendingEvent['status']?.toString() ?? 'Unknown',
+          imageUrl: imageUrl,
+          timestamp: DateTime.tryParse(pendingEvent['timestamp']?.toString() ?? '') ??
+              DateTime.now(),
+        ),
+      );
+      importedAnyEvent = true;
+    } catch (e) {
+      print('Failed to sync pending security event: $e');
+    }
+  }
+
+  await prefs.remove(_pendingSecurityEventsKey);
+  return importedAnyEvent;
+}
+
+Future<void> _initializeLocalNotifications() async {
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+  );
+
+  await _localNotifications.initialize(
+    settings: const InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    ),
+  );
+
+  final androidPlugin = _localNotifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+  await androidPlugin?.createNotificationChannel(_alertsChannel);
+}
+
+Future<void> _showLocalAlert(RemoteMessage message) async {
+  final RemoteNotification? notification = message.notification;
+  final String title =
+      message.data['title']?.toString() ?? notification?.title ?? 'Smart Home Guard';
+  final String body =
+      message.data['body']?.toString() ??
+      notification?.body ??
+      'New security event detected while the app is closed.';
+
+  final notificationId =
+      (message.data['eventId']?.toString().hashCode ?? DateTime.now().millisecondsSinceEpoch) & 0x7fffffff;
+
+  const androidDetails = AndroidNotificationDetails(
+    'smart_home_guard_alerts',
+    'Smart Home Guard Alerts',
+    channelDescription: 'Alerts for unknown person detections',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+  );
+
+  const iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+  );
+
+  await _localNotifications.show(
+    id: notificationId,
+    title: title,
+    body: body,
+    notificationDetails:
+        const NotificationDetails(android: androidDetails, iOS: iosDetails),
+    payload: jsonEncode(message.data),
+  );
+}
+
+Future<void> _configurePushNotifications() async {
+  final FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  await messaging.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  final NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  print('User granted permission: ${settings.authorizationStatus}');
+
+  try {
+    final String? token = kIsWeb
+        ? await messaging.getToken(
+            vapidKey: "insert your vapid key here if you changed it",
+          )
+        : await messaging.getToken();
+
+    print("\n\n" + "=" * 50);
+    print("YOUR FCM TOKEN IS:");
+    print(token);
+    print("=" * 50 + "\n\n");
+
+    if (token != null) {
+      await registerDeviceToken(token);
+    }
+  } catch (e) {
+    print("Failed to get FCM token: $e");
+  }
 }
 
 void main() async {
@@ -30,42 +212,11 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-  NotificationSettings settings = await messaging.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-
-  print('User granted permission: ${settings.authorizationStatus}');
-
-  String? token;
-  try {
-    if (kIsWeb) {
-      // requesting a token for the browser
-      token = await messaging.getToken(
-        vapidKey: "insert your vapid key here if you changed it",
-      );
-    } else {
-      // requesting a token for the mobile (Android / iOS)
-      token = await messaging.getToken();
-    }
-
-    print("\n\n" + "=" * 50);
-    print("YOUR FCM TOKEN IS:");
-    print(token);
-    print("=" * 50 + "\n\n");
-
-    if (token != null) {
-      // Automatically register device token with AWS
-      await registerDeviceToken(token);
-    }
-  } catch (e) {
-    print("Failed to get FCM token: $e");
-    // Continue loading the app even if messaging fails
-  }
+  await _initializeLocalNotifications();
 
   runApp(const MyApp());
+
+  unawaited(_configurePushNotifications());
 }
 
 class MyApp extends StatelessWidget {
@@ -93,26 +244,72 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _unreadEvents = 0;
   List<SecurityEvent> _events = [];
   final LocalDbService _localDbService = LocalDbService();
+  Timer? _resumeRefreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadStoredEvents();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refreshEventsFromStorage());
     // Uncomment for testing data
     //_setupTestData();
 
     _setupFirebaseListeners();
   }
 
+  @override
+  void dispose() {
+    _resumeRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleResumeRefreshes();
+    }
+  }
+
+  void _scheduleResumeRefreshes() {
+    _resumeRefreshTimer?.cancel();
+    unawaited(_refreshEventsFromStorage());
+
+    int attempts = 0;
+    _resumeRefreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      attempts++;
+      unawaited(_refreshEventsFromStorage());
+      if (attempts >= 45) {
+        timer.cancel();
+      }
+    });
+  }
+
   void _loadStoredEvents() {
     setState(() {
       _events = _localDbService.getAllSecurityEvents();
     });
+  }
+
+  Future<void> _refreshEventsFromStorage() async {
+    final bool importedPendingEvents = await _syncPendingSecurityEvents(_localDbService);
+    if (!mounted) {
+      return;
+    }
+    _loadStoredEvents();
+
+    if (importedPendingEvents) {
+      setState(() {
+        _currentIndex = 1;
+        _unreadEvents = 0;
+      });
+    }
   }
 
   void _setupTestData() async {
@@ -209,7 +406,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  void _onTabTapped(int index) {
+  Future<void> _onTabTapped(int index) async {
+    if (index == 1) {
+      await _refreshEventsFromStorage();
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _currentIndex = index;
       if (index == 1) {
@@ -224,7 +429,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case 0:
         return const HomeScreen();
       case 1:
-        return EventsListScreen(events: _events, onRefresh: _loadStoredEvents);
+        return EventsListScreen(
+          events: _events,
+          onRefresh: () => _refreshEventsFromStorage(),
+        );
       case 2:
         return const KnownPeopleScreen();
       default:

@@ -97,8 +97,8 @@ Future<bool> addKnownPerson(
 }
 
 Future<bool> registerDeviceToken(String fcmToken) async {
-  // TODO: Replace with your new API Gateway URL for lambdaRegisterDevice
-  final String apiUrl = 'https://0vqf7cd4q5.execute-api.us-east-1.amazonaws.com/approve/register-devicer';
+  // API Gateway URL for lambdaRegisterDevice.
+  final String apiUrl = 'https://0vqf7cd4q5.execute-api.us-east-1.amazonaws.com/approve/register-device';
 
   try {
     final response = await http.post(
