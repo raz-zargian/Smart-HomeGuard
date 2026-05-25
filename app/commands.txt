@@ -3,8 +3,9 @@ update app icon:
 dart run flutter_launcher_icons
 
 update app name:
-dart pub global run rename setAppName --targets ios,android,web --value "SmartHomeGuard"
-
+dart pub global run rename setAppName --targets ios,android,web --value "Smart\nHomeGuard"
+or
+dart pub global run rename setAppName --targets ios,android,web --value $'Smart\nHomeGuard'
 
 start app on web:
 flutter run -d web-server --web-port=8080
