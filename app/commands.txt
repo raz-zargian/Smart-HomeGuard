@@ -11,8 +11,8 @@ start app on web:
 flutter run -d web-server --web-port=8080
 
 
-start app on mobile:
-flutter run -d (Device ID)
+install app on mobile:
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
 
 update app on mobile:
 flutter run -d (Device ID) R5CN30FYYRM
